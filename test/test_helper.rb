@@ -24,14 +24,14 @@ end
 class AccessControlTestResource < ActiveRecord::Base
   set_table_name 'access_control_test_resources'
   acts_as_accessible  
-  PERMISSIONS[self.class.name] = {'bla' => N_('Bla')}
+  PERMISSIONS[self.class.name] = {'bla' => I18n.t(:bla)}
 end
 
 # controller to test protection
 class AccessControlTestController < ApplicationController
   include PermissionCheck
-  protect 'see_index', 'global', :user,  :only => :index
-  protect 'do_some_stuff', :resource, :user, :only => :other_stuff
+  protect :right => 'see_index', :target => 'global', :accessor => :user,  :actions => { :only => :index }
+  protect :right => 'do_some_stuff', :target => :resource, :accessor => :user, :actions => { :only => :other_stuff }
   def index
      render :text => 'test controller'
   end
