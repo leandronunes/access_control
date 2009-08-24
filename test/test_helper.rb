@@ -30,6 +30,35 @@ end
 # controller to test protection
 class AccessControlTestController < ApplicationController
   include PermissionCheck
+  protect 'see_index', 'global', :user,  :only => :index
+  protect 'do_some_stuff', :resource, :user, :only => :other_stuff
+  protect 'test_accessor', :resource, :only => :test_accessor
+
+  def index
+     render :text => 'test controller'
+  end
+
+  def other_stuff
+    render :text => 'test stuff'
+  end
+
+  def test_accessor
+    render :text => 'test accessor'
+  end
+
+protected
+  def user
+    AccessControlTestAccessor.find(params[:user]) if params[:user]
+  end
+
+  def resource
+    AccessControlTestResource.find(params[:resource]) if params[:resource]
+  end
+end
+
+# controller to test protection passing a hash as parameter
+class AnotherAccessControlTestController < ApplicationController
+  include PermissionCheck
   protect :right => 'see_index', :target => 'global', :accessor => :user,  :actions => { :only => :index }
   protect :right => 'do_some_stuff', :target => :resource, :accessor => :user, :actions => { :only => :other_stuff }
   def index

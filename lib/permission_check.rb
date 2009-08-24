@@ -14,19 +14,38 @@ module PermissionCheck
     #   is :user
     # * +action+ must be a hash of options for a before filter like 
     #   :only => :index or :except => [:edit, :update] by default protects all the actions
-    def protect(params)
-      params[:target] ||= :environment
-      params[:accessor] ||= :current_user
-      params[:actions] ||= { }
-      before_filter params[:actions] do |c|
-        target = choose_method(c, params[:target]) 
-        accessor = choose_method(c, params[:accessor]) 
-        unless accessor && accessor.has_permission?(params[:right].to_s, target)
-          c.send(:render, :file => access_denied_template_path, :status => 403) && false
+    def protect(permission, target_method = :environment, accessor = :user, actions = {})
+      params = {}
+      if permission.is_a?(Hash)
+        params[:target] = permission[:target]
+        params[:accessor] = permission[:accessor]
+        params[:actions] = permission[:actions]
+        params[:right] = permission[:right]
+      else
+        params[:right] = permission
+      end
+
+      if accessor.kind_of?(Hash)
+        params[:actions] = accessor
+        params[:accessor] = :user 
+      else
+        params[:accessor] ||= accessor
+        params[:actions] ||= actions
+      end
+
+      params[:target] ||= target_method
+
+      before_filter(params[:actions]) do |c|
+        if c.send(:check_permission?)
+          target_obj = select_object(c, params[:target]) 
+          accessor_obj = select_object(c, params[:accessor])
+          unless accessor_obj && accessor_obj.has_permission?(params[:right], target_obj)
+            c.send(:render, :file => access_denied_template_path, :status => 403) && false
+          end
         end
       end
     end
-
+    
     def access_denied_template_path
       if File.exists?(File.join(RAILS_ROOT, 'app', 'views','access_control' ,'access_denied.rhtml'))
         file_path = File.join(RAILS_ROOT, 'app', 'views','access_control' ,'access_denied.rhtml')
@@ -34,23 +53,30 @@ module PermissionCheck
         file_path = File.join(File.dirname(__FILE__),'..', 'views','access_denied.rhtml')
       end
     end
-    
-    def choose_method(controller, choice)
-      if choice.kind_of?(Symbol)
-        begin 
-          controller.send(choice)
-        rescue
-          controller.instance_variable_get("@#{choice}")
-        end
-      else
-        choice
+   
+    #TODO make a test for this function 
+    def select_object(controller, param)
+      obj = nil
+      begin 
+        obj = controller.send(param)
+      rescue
+        obj = controller.instance_variable_get("@#{param}")
       end
+      obj
     end
         
   end
 
   def self.included(including)
     including.send(:extend, PermissionCheck::ClassMethods)
+
+    #FIXME Make a test for this function.
+    # Define if the permission must be checked or not. Replace this method in your controller 
+    # to customize it.
+    def check_permission?
+      true
+    end
+
   end
   
 end
